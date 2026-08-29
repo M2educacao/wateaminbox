@@ -1,4 +1,5 @@
 import type { WhatsAppConnection } from "@/lib/api/types";
+import type { WorkerConnectionStatusPayload } from "@wateaminbox/shared";
 
 /**
  * Per-connection state tracked in the hook
@@ -48,6 +49,25 @@ export function resolveConnectionQrState(
     };
   }
   return { qrCode: null, qrExpiresAt: null };
+}
+
+/**
+ * A late worker "connecting" publication must not hide a QR that has already
+ * arrived. Worker status and QR events travel independently, so their delivery
+ * order is not guaranteed.
+ */
+export function resolveWorkerConnectionStatusUpdate(
+  payload: WorkerConnectionStatusPayload,
+): Partial<ConnectionState> {
+  const isError = payload.status === "error" || payload.status === "failed";
+  const preserveQr = payload.status === "connecting";
+
+  return {
+    ...(preserveQr ? {} : { qrCode: null, qrExpiresAt: null }),
+    error: isError ? payload.reason : null,
+    isConnecting: preserveQr,
+    isDisconnecting: false,
+  };
 }
 
 /**

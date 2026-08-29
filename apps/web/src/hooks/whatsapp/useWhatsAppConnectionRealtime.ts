@@ -14,7 +14,10 @@ import {
   clearConnectionTransition,
   consumeConnectionTransition,
 } from "./connection-analytics";
-import type { ConnectionState } from "./types";
+import {
+  resolveWorkerConnectionStatusUpdate,
+  type ConnectionState,
+} from "./types";
 
 interface UseRealtimeOptions {
   updateConnectionState: (
@@ -184,16 +187,10 @@ export function useWhatsAppConnectionRealtime({
         (payload) => {
           const connectionId = payload.connectionId;
           if (connectionId) {
-            const isError =
-              payload.status === "error" || payload.status === "failed";
-
-            updateConnectionStateRef.current(connectionId, {
-              qrCode: null,
-              qrExpiresAt: null,
-              error: isError ? payload.reason : null,
-              isConnecting: payload.status === "connecting",
-              isDisconnecting: false,
-            });
+            updateConnectionStateRef.current(
+              connectionId,
+              resolveWorkerConnectionStatusUpdate(payload),
+            );
 
             // Refetch connections to update status
             queryClientRef.current.invalidateQueries({

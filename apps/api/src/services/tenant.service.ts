@@ -1,20 +1,28 @@
 import {
+  createPostgresPool,
   getTenantSchemaName,
   reconcileTenantSchema,
   type TenantDatabase as TenantDatabaseType,
 } from "@wateaminbox/database";
 import { Kysely, PostgresDialect, sql } from "kysely";
-import { Pool as PgPool } from "pg";
 import { env } from "../lib/env.js";
+import { createLogger, formatError } from "../lib/logger.js";
 
 export type TenantDatabase = TenantDatabaseType;
 
 // Tenant handles share one bounded pool. withSchema() qualifies every table
 // reference, so connections never rely on mutable per-connection search_path.
-const tenantPool = new PgPool({
-  connectionString: env.DATABASE_URL,
-  max: env.TENANT_DB_POOL_MAX,
-});
+const tenantPoolLogger = createLogger("TenantDatabase");
+const tenantPool = createPostgresPool(
+  env.DATABASE_URL,
+  env.TENANT_DB_POOL_MAX,
+  (error) => {
+    tenantPoolLogger.error(
+      { err: formatError(error) },
+      "Idle PostgreSQL client connection failed",
+    );
+  },
+);
 const baseTenantDb = new Kysely<TenantDatabase>({
   dialect: new PostgresDialect({ pool: tenantPool }),
 });

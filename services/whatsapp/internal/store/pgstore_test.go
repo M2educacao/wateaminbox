@@ -89,3 +89,55 @@ func TestLIDMappingsAreIdentityLevelAndPreserveDevice(t *testing.T) {
 		t.Fatalf("unexpected LID Signal address: %s", lid.SignalAddressUser())
 	}
 }
+
+func TestNormalizeAndSortLIDMappings(t *testing.T) {
+	parseJID := func(value string) types.JID {
+		t.Helper()
+		jid, err := types.ParseJID(value)
+		if err != nil {
+			t.Fatalf("parse JID %q: %v", value, err)
+		}
+		return jid
+	}
+
+	mappings := []store.LIDMapping{
+		{
+			LID: parseJID("300:7@lid"),
+			PN:  parseJID("333:7@s.whatsapp.net"),
+		},
+		{
+			LID: parseJID("100:9@lid"),
+			PN:  parseJID("222:9@s.whatsapp.net"),
+		},
+		{
+			LID: parseJID("200:3@lid"),
+			PN:  parseJID("444:3@s.whatsapp.net"),
+		},
+		{
+			LID: parseJID("100:5@lid"),
+			PN:  parseJID("111:5@s.whatsapp.net"),
+		},
+	}
+
+	got := normalizeAndSortLIDMappings(mappings)
+	want := []normalizedLIDMapping{
+		{lid: "100@lid", jid: "111@s.whatsapp.net"},
+		{lid: "100@lid", jid: "222@s.whatsapp.net"},
+		{lid: "200@lid", jid: "444@s.whatsapp.net"},
+		{lid: "300@lid", jid: "333@s.whatsapp.net"},
+	}
+
+	if len(got) != len(want) {
+		t.Fatalf("expected %d mappings, got %d", len(want), len(got))
+	}
+	for index := range want {
+		if got[index] != want[index] {
+			t.Fatalf(
+				"mapping %d: expected %+v, got %+v",
+				index,
+				want[index],
+				got[index],
+			)
+		}
+	}
+}

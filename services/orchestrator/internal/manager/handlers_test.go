@@ -55,6 +55,46 @@ func TestHandleSpawnCommand_Valid(t *testing.T) {
 	assert.Equal(t, cmd.DatabaseURL, parsed.DatabaseURL)
 }
 
+func TestShouldReplaceWorkerForSpawn(t *testing.T) {
+	tests := []struct {
+		name   string
+		worker *WorkerProcess
+		exists bool
+		want   bool
+	}{
+		{name: "missing worker", exists: false, want: false},
+		{name: "nil worker", exists: true, want: false},
+		{
+			name:   "stopped process",
+			worker: &WorkerProcess{PID: 0, Status: types.StatusStopped},
+			exists: true,
+			want:   false,
+		},
+		{
+			name:   "connecting live process",
+			worker: &WorkerProcess{PID: 123, Status: types.StatusConnecting},
+			exists: true,
+			want:   true,
+		},
+		{
+			name:   "stale connected live process",
+			worker: &WorkerProcess{PID: 456, Status: types.StatusConnected},
+			exists: true,
+			want:   true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(
+				t,
+				test.want,
+				shouldReplaceWorkerForSpawn(test.worker, test.exists),
+			)
+		})
+	}
+}
+
 // TestHandleSpawnCommand_MissingFields tests spawn command with missing fields.
 func TestHandleSpawnCommand_MissingFields(t *testing.T) {
 	tests := []struct {

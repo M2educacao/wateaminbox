@@ -23,6 +23,7 @@ out
 # Operator-created production material
 secrets/
 backups/
+/backup-*.sql
 *.dump
 
 # Logs

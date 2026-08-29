@@ -715,6 +715,30 @@ export interface NatsOutboxTable {
 // Database Connection Functions
 // ============================================================================
 
+export type PostgresPoolErrorHandler = (error: Error) => void;
+
+function reportUnhandledPostgresPoolError(error: Error): void {
+  process.emitWarning(error, {
+    code: "POSTGRES_POOL_ERROR",
+  });
+}
+
+export function createPostgresPool(
+  connectionString: string,
+  max: number,
+  onError: PostgresPoolErrorHandler = reportUnhandledPostgresPoolError,
+): Pool {
+  const pool = new Pool({
+    connectionString,
+    max,
+  });
+
+  // pg emits idle-client failures through the pool. Without a listener,
+  // Node treats the event as uncaught and terminates the API process.
+  pool.on("error", onError);
+  return pool;
+}
+
 /**
  * Creates a Kysely database instance for the public schema
  */
@@ -730,10 +754,7 @@ export function createDatabase(
     throw new RangeError("Database pool maximum must be between 1 and 50");
   }
   const dialect = new PostgresDialect({
-    pool: new Pool({
-      connectionString,
-      max: maxConnections,
-    }),
+    pool: createPostgresPool(connectionString, maxConnections),
   });
 
   return new Kysely<Database>({
@@ -749,10 +770,7 @@ export function createTenantDatabase(
   schemaName: string,
 ): Kysely<TenantDatabase> {
   const dialect = new PostgresDialect({
-    pool: new Pool({
-      connectionString,
-      max: 5,
-    }),
+    pool: createPostgresPool(connectionString, 5),
   });
 
   const db = new Kysely<TenantDatabase>({
