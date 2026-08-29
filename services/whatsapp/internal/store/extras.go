@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"sort"
 	"time"
 
 	"github.com/lib/pq"
@@ -27,12 +28,36 @@ func mappedDeviceJID(stored string, source types.JID) (types.JID, error) {
 	return mapped, nil
 }
 
+type normalizedLIDMapping struct {
+	lid string
+	jid string
+}
+
+func normalizeAndSortLIDMappings(mappings []store.LIDMapping) []normalizedLIDMapping {
+	normalized := make([]normalizedLIDMapping, 0, len(mappings))
+	for _, mapping := range mappings {
+		normalized = append(normalized, normalizedLIDMapping{
+			lid: normalizedMappingJID(mapping.LID),
+			jid: normalizedMappingJID(mapping.PN),
+		})
+	}
+	sort.Slice(normalized, func(i, j int) bool {
+		if normalized[i].lid == normalized[j].lid {
+			return normalized[i].jid < normalized[j].jid
+		}
+		return normalized[i].lid < normalized[j].lid
+	})
+	return normalized
+}
+
 // PutManyLIDMappings stores identity-level mappings. Device numbers are applied
 // when a mapping is read, matching whatsmeow's built-in SQL store behavior.
 func (s *PGSQLStore) PutManyLIDMappings(ctx context.Context, mappings []store.LIDMapping) error {
 	if len(mappings) == 0 {
 		return nil
 	}
+
+	normalizedMappings := normalizeAndSortLIDMappings(mappings)
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -50,12 +75,12 @@ func (s *PGSQLStore) PutManyLIDMappings(ctx context.Context, mappings []store.LI
 	}
 	defer stmt.Close()
 
-	for _, mapping := range mappings {
+	for _, mapping := range normalizedMappings {
 		_, err = stmt.ExecContext(
 			ctx,
 			s.connectionID,
-			normalizedMappingJID(mapping.LID),
-			normalizedMappingJID(mapping.PN),
+			mapping.lid,
+			mapping.jid,
 		)
 		if err != nil {
 			return err

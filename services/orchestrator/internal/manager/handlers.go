@@ -298,7 +298,7 @@ func (h *Handlers) handleSpawnCommand(ctx context.Context, data []byte, hops int
 	// A reconnect is an explicit request for a fresh pairing attempt. Replace a
 	// worker that is still starting/erroring rather than reporting it as active:
 	// an unpaired worker cannot generate a new QR from a duplicate spawn alone.
-	if worker, exists := h.manager.GetWorkerStatus(cmd.ConnectionID); exists && worker.Status != types.StatusConnected && worker.PID > 0 {
+	if worker, exists := h.manager.GetWorkerStatus(cmd.ConnectionID); shouldReplaceWorkerForSpawn(worker, exists) {
 		if err := h.manager.StopWorker(ctx, cmd.CompanyID, cmd.ConnectionID, "restart requested for pairing"); err != nil {
 			log.Printf("Warning: failed to stop stale worker %s: %v", cmd.ConnectionID, err)
 		}
@@ -327,6 +327,10 @@ func (h *Handlers) handleSpawnCommand(ctx context.Context, data []byte, hops int
 	}
 
 	return nil
+}
+
+func shouldReplaceWorkerForSpawn(worker *WorkerProcess, exists bool) bool {
+	return exists && worker != nil && worker.PID > 0
 }
 
 // handleKillCommand handles a kill worker command.

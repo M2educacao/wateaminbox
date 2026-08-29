@@ -61,6 +61,7 @@ export type {
 } from "./client";
 export {
   createDatabase,
+  createPostgresPool,
   createTenantDatabase,
   db,
   getTenantSchemaName,

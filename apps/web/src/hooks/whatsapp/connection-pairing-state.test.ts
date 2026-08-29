@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { type ConnectionState, resolveConnectionQrState } from "./types";
+import {
+  type ConnectionState,
+  resolveConnectionQrState,
+  resolveWorkerConnectionStatusUpdate,
+} from "./types";
 
 const localState = (qrCode: string | null): ConnectionState => ({
   qrCode,
@@ -41,5 +45,33 @@ describe("connection pairing state", () => {
         "connected",
       ),
     ).toEqual({ qrCode: null, qrExpiresAt: null });
+  });
+
+  test("preserves an existing QR when a late worker connecting event arrives", () => {
+    expect(
+      resolveWorkerConnectionStatusUpdate({
+        status: "connecting",
+        reason: "",
+      }),
+    ).toEqual({
+      error: null,
+      isConnecting: true,
+      isDisconnecting: false,
+    });
+  });
+
+  test("clears QR state when the worker reaches a terminal failure", () => {
+    expect(
+      resolveWorkerConnectionStatusUpdate({
+        status: "failed",
+        reason: "worker stopped",
+      }),
+    ).toEqual({
+      qrCode: null,
+      qrExpiresAt: null,
+      error: "worker stopped",
+      isConnecting: false,
+      isDisconnecting: false,
+    });
   });
 });
